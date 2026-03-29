@@ -399,9 +399,9 @@ export function Player(props: { position?: [number, number, number] }) {
       bones[3].rotation.set(0, 0, 0);
       bones[3].rotateOnAxis(spineAxis, pitch * 0.7);
 
-      // Lean: rotate spine on Z
+      // Lean: rotate spine on Z (positive lean = right, body tilts right)
       if (Math.abs(playerState.lean) > 0.01) {
-        bones[3].rotateZ(-playerState.lean * LEAN.maxAngle);
+        bones[3].rotateZ(playerState.lean * LEAN.maxAngle);
       }
     }
 

@@ -89,15 +89,16 @@ export function updateCamera(params: {
   const baseFov = isADS ? CAMERA.adsFov : CAMERA.defaultFov + (isSprint ? CAMERA.sprintFovBoost : 0);
   const lerpSpeed = isADS ? CAMERA.adsLerpSpeed : CAMERA.defaultLerpSpeed;
 
-  // Lean camera offset
+  // Lean camera offset (horizontal + slight downward)
   const leanOffset = state.lean * LEAN.headOffset;
   const totalRightOffset = rightOffset + leanOffset;
+  const leanDownOffset = Math.abs(state.lean) * LEAN.cameraDownOffset;
 
   // Orbital position based on pitch
   const orbitAngle = pitch;
   const cameraOffset = new THREE.Vector3(
     -totalRightOffset,
-    Math.sin(orbitAngle) * distance + state.cameraHeight,
+    Math.sin(orbitAngle) * distance + state.cameraHeight - leanDownOffset,
     -Math.cos(orbitAngle) * distance,
   );
 

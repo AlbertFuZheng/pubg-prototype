@@ -168,8 +168,8 @@ export function Player(props: { position?: [number, number, number] }) {
       shootRef.current = true;
       playerState.lastFireTime = now;
       playerState.consecutiveShots++;
-      // Lock sprint for 0.3s after firing
-      sprintLockUntilRef.current = now + 0.3;
+      // Lock sprint for 0.5s after firing
+      sprintLockUntilRef.current = now + 0.5;
 
       // Audio
       if (shotSfxRef.current) {
@@ -202,7 +202,7 @@ export function Player(props: { position?: [number, number, number] }) {
           if (playerState.isSprinting) {
             // Sprinting: exit sprint immediately, delay shot by 0.1s for turn-back
             playerState.isSprinting = false;
-            sprintLockUntilRef.current = now + 0.3;
+            sprintLockUntilRef.current = now + 0.5;
             pendingShootTimeRef.current = now + 0.1;
           } else {
             executeShot();
@@ -299,7 +299,7 @@ export function Player(props: { position?: [number, number, number] }) {
       shootRef.current = true;
       playerState.lastFireTime = now;
       playerState.consecutiveShots++;
-      sprintLockUntilRef.current = now + 0.3;
+      sprintLockUntilRef.current = now + 0.5;
       if (shotSfxRef.current) { shotSfxRef.current.stop(); shotSfxRef.current.play(); }
       if (leftHandBone.current && rightHandBone.current) {
         leftHandOrigRot.current.copy(leftHandBone.current.rotation);

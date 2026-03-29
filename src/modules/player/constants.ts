@@ -123,7 +123,7 @@ export const SHOOTING = {
 
   recoil: {
     verticalBase: 0.08,          // very small upward kick per shot (degrees)
-    verticalAccumulation: 0.02,  // minimal increase on sustained fire
+    verticalAccumulation: 0,     // no increase on sustained fire — each shot feels the same
     horizontalRange: 0.12,       // small random left/right jitter (degrees)
     recoverySpeed: 4.0,          // fast recovery
     stanceMultiplier: {

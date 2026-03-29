@@ -135,17 +135,25 @@ export function updateCamera(params: {
     }
   }
 
-  // Camera position: snap in when colliding (responsive), lerp out when recovering (smooth)
+  // Camera position: snap in when colliding, cap recovery speed when moving back out
   const prev = smoothedCameraPosition.current;
   const prevDist = prev.distanceTo(headPos);
   const finalDist = finalCameraPos.distanceTo(headPos);
 
-  if (finalDist < prevDist - 0.01) {
-    // Moving closer (collision push-in): snap immediately
+  if (finalDist <= prevDist + 0.01) {
+    // Moving closer or same: snap immediately
     prev.copy(finalCameraPos);
   } else {
-    // Moving back out (collision recovery): smooth lerp
-    prev.lerp(finalCameraPos, Math.min(1, delta * 6));
+    // Moving back out (collision recovery): limit max distance per frame
+    const maxRecoverPerFrame = delta * 8; // ~8 units/sec recovery speed
+    const recoverDist = finalDist - prevDist;
+    if (recoverDist > maxRecoverPerFrame) {
+      // Move along direction from head toward final, capped
+      const dir = new THREE.Vector3().subVectors(finalCameraPos, headPos).normalize();
+      prev.copy(headPos).add(dir.multiplyScalar(prevDist + maxRecoverPerFrame));
+    } else {
+      prev.copy(finalCameraPos);
+    }
   }
   camera.position.copy(prev);
 

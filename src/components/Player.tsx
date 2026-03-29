@@ -379,6 +379,7 @@ export function Player(props: { position?: [number, number, number] }) {
       playerYRotation,
       controls,
       smoothedPlayerPosition: smoothedPlayerPos,
+      group,
       delta,
     });
 
@@ -424,9 +425,9 @@ export function Player(props: { position?: [number, number, number] }) {
       bones[3].rotation.set(0, 0, 0);
 
       if (playerState.isSprinting) {
-        // Sprint: tilt upper body forward slightly (lowered gun posture)
+        // Sprint: tilt upper body forward (lowered gun posture)
         const spineAxis = new THREE.Vector3(1, 0, 0);
-        bones[3].rotateOnAxis(spineAxis, 0.3); // lean forward ~17 degrees
+        bones[3].rotateOnAxis(spineAxis, 0.7); // lean forward ~40 degrees
       } else {
         // Normal: spine follows pitch for aiming
         const spineAxis = new THREE.Vector3(1, 0, -0.5);

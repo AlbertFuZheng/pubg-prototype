@@ -25,9 +25,10 @@ export function updateMovementPhysics(params: {
   playerYRotation: THREE.Quaternion;
   controls: React.RefObject<RapierRigidBody | null>;
   smoothedPlayerPosition: React.MutableRefObject<THREE.Vector3>;
+  group: React.RefObject<THREE.Group | null>;
   delta: number;
 }): void {
-  const { input, state, playerYRotation, controls, smoothedPlayerPosition, delta } = params;
+  const { input, state, playerYRotation, controls, smoothedPlayerPosition, group, delta } = params;
   if (!controls.current) return;
 
   const stanceCfg = STANCE_CONFIG[state.stance];
@@ -86,10 +87,11 @@ export function updateMovementPhysics(params: {
     true,
   );
 
-  // Fast lerp to eliminate ghosting from physics/render timing mismatch
-  // (delta * 40 is fast enough to appear rigid but prevents frame-gap jitter)
-  const rb = controls.current;
-  const t = rb.translation();
-  const target = new THREE.Vector3(t.x, t.y + stanceCfg.cameraHeight, t.z);
-  smoothedPlayerPosition.current.lerp(target, Math.min(1, delta * 40));
+  // Read visual position from the Three.js group (already interpolated by rapier)
+  // This ensures camera and model use the exact same position each frame — no ghosting
+  if (group.current) {
+    const worldPos = new THREE.Vector3();
+    group.current.getWorldPosition(worldPos);
+    smoothedPlayerPosition.current.set(worldPos.x, worldPos.y + stanceCfg.cameraHeight, worldPos.z);
+  }
 }

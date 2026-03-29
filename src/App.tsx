@@ -55,7 +55,7 @@ function LoadingScreen() {
 
 function PhysicsScene() {
   return (
-    <Physics gravity={[0, -20, 0]}>
+    <Physics gravity={[0, -20, 0]} interpolate={true} timeStep="vary">
       <Environment />
       <Player position={[0, 2, 5]} />
     </Physics>

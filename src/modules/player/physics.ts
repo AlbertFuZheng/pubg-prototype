@@ -86,8 +86,10 @@ export function updateMovementPhysics(params: {
     true,
   );
 
-  // Use rigid body position directly for camera (no lerp = no drift during movement)
+  // Fast lerp to eliminate ghosting from physics/render timing mismatch
+  // (delta * 40 is fast enough to appear rigid but prevents frame-gap jitter)
   const rb = controls.current;
   const t = rb.translation();
-  smoothedPlayerPosition.current.set(t.x, t.y + stanceCfg.cameraHeight, t.z);
+  const target = new THREE.Vector3(t.x, t.y + stanceCfg.cameraHeight, t.z);
+  smoothedPlayerPosition.current.lerp(target, Math.min(1, delta * 40));
 }

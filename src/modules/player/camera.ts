@@ -145,20 +145,13 @@ export function updateCamera(params: {
   // Fix rotation order: YXZ prevents parasitic roll from lookAt decomposition
   camera.rotation.order = 'YXZ';
 
-  // Camera lookAt
-  if (isADS) {
-    // ADS: look along aim direction
-    const aimOrigin = smoothedPlayerPosition.current.clone().add(new THREE.Vector3(0, state.cameraHeight - 0.2, 0));
-    const aimQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(-pitch, yaw + Math.PI, 0, 'YXZ'));
-    const aimDir = new THREE.Vector3(0, 0, -1).applyQuaternion(aimQuat);
-    const aimTarget = aimOrigin.clone().add(aimDir.multiplyScalar(15));
-    camera.lookAt(aimTarget);
-  } else {
-    // Default TPP: look at character chest
-    const lookTarget = smoothedPlayerPosition.current.clone().add(new THREE.Vector3(0, state.cameraHeight * 0.55, 0));
-    camera.lookAt(lookTarget);
-  }
+  // Camera orientation: use fixed aim direction (no lookAt) to prevent
+  // orientation changes during jump/crouch/prone stance transitions.
+  // This matches PUBG behavior where camera direction stays stable.
+  const aimQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(-pitch, yaw + Math.PI, 0, 'YXZ'));
+  const aimDir = new THREE.Vector3(0, 0, -1).applyQuaternion(aimQuat);
+  const lookTarget = camera.position.clone().add(aimDir.multiplyScalar(15));
+  camera.lookAt(lookTarget);
 
-  // Apply lean roll AFTER lookAt (state.lean is already smoothed in lean.ts)
-  camera.rotation.z = -state.lean * LEAN.maxAngle * LEAN.cameraRollMultiplier;
+  // Lean: position offset only, no roll rotation (matches PUBG Mobile/PC behavior)
 }

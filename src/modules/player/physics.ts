@@ -49,7 +49,7 @@ export function updateMovementPhysics(params: {
 
   // Direction vectors based on player facing
   const playerForward = new THREE.Vector3(0, 0, -1).applyQuaternion(playerYRotation);
-  const playerRight = new THREE.Vector3().crossVectors(playerForward, new THREE.Vector3(0, 1, 0));
+  const playerRight = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), playerForward);
 
   // Compute movement direction
   let moveZ = 0; // forward/backward

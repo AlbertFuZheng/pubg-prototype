@@ -99,7 +99,7 @@ export const LEAN = {
 } as const;
 
 // --- 跳跃 ---
-export const JUMP_IMPULSE = 5.0;
+export const JUMP_IMPULSE = 3.5; // Lower jump height (PUBG-style grounded feel)
 export const JUMP_COOLDOWN = 0.5;
 
 // --- 射击 ---

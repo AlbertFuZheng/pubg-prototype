@@ -349,7 +349,27 @@ export function Player(props: { position?: [number, number, number] }) {
     if (group.current) {
       // When no pointer lock, snap instantly to prevent desync after tab switch
       const slerpFactor = !hasPointerLock || playerState.isAiming ? 1 : 0.15;
-      group.current.quaternion.slerp(playerYRotation, slerpFactor);
+
+      if (playerState.isSprinting) {
+        // During sprint: face movement direction instead of camera direction
+        let moveZ = 0, moveX = 0;
+        if (input.forward) moveZ -= 1;
+        if (input.backward) moveZ += 1;
+        if (input.left) moveX -= 1;
+        if (input.right) moveX += 1;
+
+        if (moveZ !== 0 || moveX !== 0) {
+          const moveAngle = Math.atan2(moveX, moveZ);
+          const sprintYaw = yaw + moveAngle + Math.PI;
+          const sprintRotation = new THREE.Quaternion().setFromAxisAngle(
+            new THREE.Vector3(0, 1, 0),
+            sprintYaw,
+          );
+          group.current.quaternion.slerp(sprintRotation, 0.15);
+        }
+      } else {
+        group.current.quaternion.slerp(playerYRotation, slerpFactor);
+      }
     }
 
     // ---- Physics movement ----

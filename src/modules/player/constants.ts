@@ -19,12 +19,12 @@ export const ADS_SENSITIVITY_MULTIPLIER = 0.6; // 开镜时降低灵敏度
 
 // --- 摄像机参数 ---
 export const CAMERA = {
-  // 默认TPP视角（越肩）
-  defaultDistance: 3.0,
+  // 默认TPP视角（越肩，PUBG风格紧凑构图）
+  defaultDistance: 1.8,
   defaultHeight: 1.8,
-  defaultRightOffset: 0.6,
+  defaultRightOffset: 0.35,
   defaultLookAtHeight: 1.3,
-  defaultFov: 75,
+  defaultFov: 70,
   defaultLerpSpeed: 0.08,
 
   // ADS 视角

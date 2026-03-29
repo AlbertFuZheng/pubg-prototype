@@ -131,9 +131,10 @@ export function updateCamera(params: {
     }
   }
 
-  // Smooth camera position
-  smoothedCameraPosition.current.lerp(finalCameraPos, Math.min(1, lerpSpeed + delta * 2));
-  camera.position.copy(smoothedCameraPosition.current);
+  // Set camera position directly (player position is already smoothed in physics.ts)
+  // No extra lerp here — keeps camera-to-player offset rigid during yaw rotation
+  smoothedCameraPosition.current.copy(finalCameraPos);
+  camera.position.copy(finalCameraPos);
 
   // FOV transition
   if (camera instanceof THREE.PerspectiveCamera) {

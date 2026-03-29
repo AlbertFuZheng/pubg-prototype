@@ -142,11 +142,8 @@ export function updateCamera(params: {
     camera.updateProjectionMatrix();
   }
 
-  // Camera lean roll
-  if (camera instanceof THREE.PerspectiveCamera) {
-    const targetRoll = -state.lean * LEAN.maxAngle * LEAN.cameraRollMultiplier;
-    // We apply roll via camera.rotation.z after lookAt
-  }
+  // Fix rotation order: YXZ prevents parasitic roll from lookAt decomposition
+  camera.rotation.order = 'YXZ';
 
   // Camera lookAt
   if (isADS) {
@@ -162,7 +159,6 @@ export function updateCamera(params: {
     camera.lookAt(lookTarget);
   }
 
-  // Apply lean roll AFTER lookAt
-  const targetRoll = -state.lean * LEAN.maxAngle * LEAN.cameraRollMultiplier;
-  camera.rotation.z += (targetRoll - camera.rotation.z) * Math.min(1, delta * LEAN.lerpSpeed);
+  // Apply lean roll AFTER lookAt (state.lean is already smoothed in lean.ts)
+  camera.rotation.z = -state.lean * LEAN.maxAngle * LEAN.cameraRollMultiplier;
 }

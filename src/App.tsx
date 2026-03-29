@@ -2,15 +2,16 @@
 // App.tsx — 主应用入口
 // ============================================================
 
-import React, { Suspense, useState, useRef } from 'react';
+import React, { Suspense, useState, useCallback } from 'react';
 import { KeyboardControls } from '@react-three/drei';
 import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
 import { Player } from './components/Player';
+import type { PlayerHUDState } from './components/Player';
 import { Environment } from './components/Environment';
 import { Crosshair } from './components/Crosshair';
 import { HUD } from './components/HUD';
-import { Stance } from './modules/player/constants';
+import { Stance, FireMode } from './modules/player/constants';
 
 // Keyboard mapping (和平精英 PC端 默认按键)
 const keyMap = [
@@ -53,21 +54,56 @@ function LoadingScreen() {
   );
 }
 
-function PhysicsScene() {
+const defaultHUDState: PlayerHUDState = {
+  stance: Stance.Standing,
+  isAiming: false,
+  isSprinting: false,
+  weaponName: 'M416',
+  ammo: 30,
+  magSize: 30,
+  reserveAmmo: 90,
+  isReloading: false,
+  fireMode: FireMode.Auto,
+  spread: 3,
+};
+
+function PhysicsScene({ onStateUpdate }: { onStateUpdate: (s: PlayerHUDState) => void }) {
   return (
     <Physics gravity={[0, -20, 0]} interpolate={true} timeStep="vary">
       <Environment />
-      <Player position={[0, 2, 5]} />
+      <Player position={[0, 2, 5]} onStateUpdate={onStateUpdate} />
     </Physics>
   );
 }
 
 export default function App() {
+  const [hudState, setHudState] = useState<PlayerHUDState>(defaultHUDState);
+
+  // Throttle HUD updates to ~30fps to avoid React re-render overhead
+  const lastUpdateRef = React.useRef(0);
+  const onStateUpdate = useCallback((state: PlayerHUDState) => {
+    const now = performance.now();
+    if (now - lastUpdateRef.current > 33) { // ~30fps
+      lastUpdateRef.current = now;
+      setHudState(state);
+    }
+  }, []);
+
   return (
     <div style={{ width: '100vw', height: '100vh', margin: 0, overflow: 'hidden', background: '#000' }}>
-      {/* HUD overlays */}
-      <Crosshair spread={3} isAiming={false} />
-      <HUD stance={Stance.Standing} isAiming={false} isSprinting={false} />
+      {/* HUD overlays — dynamic */}
+      <Crosshair spread={hudState.spread} isAiming={hudState.isAiming} />
+      <HUD
+        stance={hudState.stance}
+        isAiming={hudState.isAiming}
+        isSprinting={hudState.isSprinting}
+        weaponName={hudState.weaponName}
+        ammo={hudState.ammo}
+        magSize={hudState.magSize}
+        reserveAmmo={hudState.reserveAmmo}
+        isReloading={hudState.isReloading}
+        fireMode={hudState.fireMode}
+      />
 
       {/* Controls help (top-left) */}
       <div
@@ -114,12 +150,10 @@ export default function App() {
           <color attach="background" args={['#87CEEB']} />
 
           <Suspense fallback={null}>
-            <PhysicsScene />
+            <PhysicsScene onStateUpdate={onStateUpdate} />
           </Suspense>
         </Canvas>
       </KeyboardControls>
-
-      {/* Loading screen as fallback */}
     </div>
   );
 }

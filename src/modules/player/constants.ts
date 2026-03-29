@@ -149,6 +149,65 @@ export const FREE_LOOK = {
   returnLerpSpeed: 8, // per second
 } as const;
 
+// --- 射击模式 ---
+export enum FireMode {
+  Auto = 'auto',
+  Single = 'single',
+}
+
+// --- 武器配置 ---
+export interface WeaponConfig {
+  name: string;
+  fireRate: number;         // rounds per minute
+  fireCooldown: number;     // seconds between shots
+  magSize: number;          // magazine capacity
+  reserveAmmo: number;      // starting reserve
+  reloadTime: number;       // seconds to reload
+  damage: number;
+  recoilVertical: number;   // degrees per shot
+  recoilHorizontal: number; // max random horizontal range (degrees)
+  availableModes: FireMode[];
+}
+
+export const WEAPONS: WeaponConfig[] = [
+  {
+    name: 'AKM',
+    fireRate: 600,
+    fireCooldown: 60 / 600,
+    magSize: 30,
+    reserveAmmo: 90,
+    reloadTime: 2.4,
+    damage: 36,
+    recoilVertical: 0.10,
+    recoilHorizontal: 0.15,
+    availableModes: [FireMode.Auto, FireMode.Single],
+  },
+  {
+    name: 'M416',
+    fireRate: 680,
+    fireCooldown: 60 / 680,
+    magSize: 30,
+    reserveAmmo: 90,
+    reloadTime: 2.1,
+    damage: 31,
+    recoilVertical: 0.08,
+    recoilHorizontal: 0.12,
+    availableModes: [FireMode.Auto, FireMode.Single],
+  },
+  {
+    name: 'AWM',
+    fireRate: 26,           // bolt-action, ~26 RPM
+    fireCooldown: 60 / 26,
+    magSize: 5,
+    reserveAmmo: 20,
+    reloadTime: 3.6,
+    damage: 120,
+    recoilVertical: 0.20,
+    recoilHorizontal: 0.05,
+    availableModes: [FireMode.Single],
+  },
+];
+
 // --- 动画索引映射 ---
 export const ANIM = {
   IDLE: 0,

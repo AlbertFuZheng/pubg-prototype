@@ -19,6 +19,8 @@ import {
   SHOOTING,
   LEAN,
   MUZZLE_FLASH_LIGHT_DISTANCE,
+  WEAPONS,
+  FireMode,
 } from '../modules/player/constants';
 import type { GLTFResult, PlayerState, InputState } from '../modules/player/types';
 import { useAnimationSetup } from '../modules/player/useAnimationSetup';
@@ -36,7 +38,23 @@ import { updateFreeLook } from '../modules/player/freeLook';
 const BASE = import.meta.env.BASE_URL || '/';
 const getPath = (p: string) => BASE + p.replace(/^\//, '');
 
-export function Player(props: { position?: [number, number, number] }) {
+export interface PlayerHUDState {
+  stance: Stance;
+  isAiming: boolean;
+  isSprinting: boolean;
+  weaponName: string;
+  ammo: number;
+  magSize: number;
+  reserveAmmo: number;
+  isReloading: boolean;
+  fireMode: FireMode;
+  spread: number;
+}
+
+export function Player(props: {
+  position?: [number, number, number];
+  onStateUpdate?: (state: PlayerHUDState) => void;
+}) {
   const group = useRef<THREE.Group>(null);
   const mouseRotation = useRef({ x: 0, y: 0 });
   const pendingMouseX = useRef(0); // for free-look
@@ -50,6 +68,7 @@ export function Player(props: { position?: [number, number, number] }) {
   const { actions, mixer, clips } = useAnimationSetup(clone);
 
   // Game state
+  const initWeapon = WEAPONS[1]; // M416 default
   const [playerState] = useState<PlayerState>(() => ({
     stance: Stance.Standing,
     isJumping: false,
@@ -65,6 +84,13 @@ export function Player(props: { position?: [number, number, number] }) {
     lastFireTime: 0,
     lastJumpTime: 0,
     consecutiveShots: 0,
+    // Weapon system
+    currentWeaponIndex: 1,
+    ammo: initWeapon.magSize,
+    reserveAmmo: initWeapon.reserveAmmo,
+    isReloading: false,
+    reloadTimer: 0,
+    fireMode: initWeapon.availableModes[0],
   }));
 
   // Refs
@@ -77,6 +103,7 @@ export function Player(props: { position?: [number, number, number] }) {
   const shootRef = useRef(false);
   const aimRef = useRef(false);
   const shotSfxRef = useRef<THREE.PositionalAudio>(null);
+  const mouseHeldRef = useRef(false); // LMB held for auto fire
 
   // Bone refs
   const leftHandBone = useRef<THREE.Bone | null>(null);
@@ -105,8 +132,12 @@ export function Player(props: { position?: [number, number, number] }) {
   const pronePressedRef = useRef(false);
 
   // Sprint-to-shoot transition
-  const sprintLockUntilRef = useRef(0); // timestamp: no sprint allowed until this time
-  const pendingShootTimeRef = useRef(0); // timestamp: delayed shot fires at this time
+  const sprintLockUntilRef = useRef(0);
+  const pendingShootTimeRef = useRef(0);
+
+  // Weapon switch / reload / fire-mode toggle detection
+  const reloadPressedRef = useRef(false);
+  const fireModePressedRef = useRef(false);
 
   // Keyboard controls
   const [, get] = useKeyboardControls();
@@ -142,6 +173,42 @@ export function Player(props: { position?: [number, number, number] }) {
     }
   }, [bones]);
 
+  // Helper: get current weapon config
+  const getWeapon = () => WEAPONS[playerState.currentWeaponIndex] ?? WEAPONS[1];
+
+  // Helper: execute a shot (shared between immediate and delayed fire)
+  const executeShot = useCallback(() => {
+    const weapon = WEAPONS[playerState.currentWeaponIndex] ?? WEAPONS[1];
+    if (playerState.ammo <= 0 || playerState.isReloading) return;
+
+    const now = performance.now() / 1000;
+    shootRef.current = true;
+    playerState.lastFireTime = now;
+    playerState.consecutiveShots++;
+    playerState.ammo--;
+    sprintLockUntilRef.current = now + 0.5;
+
+    // Audio
+    if (shotSfxRef.current) {
+      shotSfxRef.current.stop();
+      shotSfxRef.current.play();
+    }
+
+    // Visual recoil
+    if (leftHandBone.current && rightHandBone.current) {
+      leftHandOrigRot.current.copy(leftHandBone.current.rotation);
+      rightHandOrigRot.current.copy(rightHandBone.current.rotation);
+      recoilActive.current = true;
+      recoilStartTime.current = Date.now();
+    }
+
+    // Muzzle flash
+    muzzleFlashActive.current = true;
+    muzzleFlashStartTime.current = Date.now();
+
+    setTimeout(() => { shootRef.current = false; }, 50);
+  }, [playerState]);
+
   // PointerLock + mouse + shooting input
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
@@ -163,44 +230,14 @@ export function Player(props: { position?: [number, number, number] }) {
       }
     };
 
-    const executeShot = () => {
-      const now = performance.now() / 1000;
-      shootRef.current = true;
-      playerState.lastFireTime = now;
-      playerState.consecutiveShots++;
-      // Lock sprint for 0.5s after firing
-      sprintLockUntilRef.current = now + 0.5;
-
-      // Audio
-      if (shotSfxRef.current) {
-        shotSfxRef.current.stop();
-        shotSfxRef.current.play();
-      }
-
-      // Visual recoil
-      if (leftHandBone.current && rightHandBone.current) {
-        leftHandOrigRot.current.copy(leftHandBone.current.rotation);
-        rightHandOrigRot.current.copy(rightHandBone.current.rotation);
-        recoilActive.current = true;
-        recoilStartTime.current = Date.now();
-      }
-
-      // Muzzle flash
-      muzzleFlashActive.current = true;
-      muzzleFlashStartTime.current = Date.now();
-
-      setTimeout(() => {
-        shootRef.current = false;
-      }, 50);
-    };
-
     const onMouseDown = (e: MouseEvent) => {
       if (e.button === 0) {
-        // Left click = shoot
+        mouseHeldRef.current = true;
+        // Immediate shot attempt (for single fire or first auto shot)
         const now = performance.now() / 1000;
-        if (now - playerState.lastFireTime >= SHOOTING.fireCooldown) {
+        const weapon = WEAPONS[playerState.currentWeaponIndex] ?? WEAPONS[1];
+        if (now - playerState.lastFireTime >= weapon.fireCooldown && !playerState.isReloading && playerState.ammo > 0) {
           if (playerState.isSprinting) {
-            // Sprinting: exit sprint immediately, delay shot by 0.1s for turn-back
             playerState.isSprinting = false;
             sprintLockUntilRef.current = now + 0.5;
             pendingShootTimeRef.current = now + 0.1;
@@ -218,6 +255,7 @@ export function Player(props: { position?: [number, number, number] }) {
         aimRef.current = false;
       }
       if (e.button === 0) {
+        mouseHeldRef.current = false;
         playerState.consecutiveShots = 0;
       }
     };
@@ -226,9 +264,31 @@ export function Player(props: { position?: [number, number, number] }) {
       if (e.key === 'Escape' && document.pointerLockElement) {
         document.exitPointerLock();
       }
+      // Fire mode toggle: B key
+      if (e.code === 'KeyB') {
+        const weapon = WEAPONS[playerState.currentWeaponIndex] ?? WEAPONS[1];
+        const modes = weapon.availableModes;
+        if (modes.length > 1) {
+          const currentIdx = modes.indexOf(playerState.fireMode);
+          playerState.fireMode = modes[(currentIdx + 1) % modes.length];
+        }
+      }
+      // Weapon switch: 1, 2, 3
+      if (e.code === 'Digit1' || e.code === 'Digit2' || e.code === 'Digit3') {
+        const slot = parseInt(e.code.replace('Digit', '')) - 1;
+        if (slot !== playerState.currentWeaponIndex && slot >= 0 && slot < WEAPONS.length) {
+          const newWeapon = WEAPONS[slot];
+          playerState.currentWeaponIndex = slot;
+          playerState.ammo = newWeapon.magSize;
+          playerState.reserveAmmo = newWeapon.reserveAmmo;
+          playerState.isReloading = false;
+          playerState.reloadTimer = 0;
+          playerState.consecutiveShots = 0;
+          playerState.fireMode = newWeapon.availableModes[0];
+        }
+      }
     };
 
-    // Prevent context menu on right click
     const onContextMenu = (e: Event) => e.preventDefault();
 
     document.addEventListener('mousemove', onMouseMove);
@@ -246,7 +306,7 @@ export function Player(props: { position?: [number, number, number] }) {
       document.removeEventListener('keydown', onKeyDown);
       document.removeEventListener('contextmenu', onContextMenu);
     };
-  }, [playerState]);
+  }, [playerState, executeShot]);
 
   const rapier = useRapier();
 
@@ -254,14 +314,12 @@ export function Player(props: { position?: [number, number, number] }) {
   useFrame((threeState, delta) => {
     if (!controls.current) return;
 
-    // When pointer lock is lost (e.g. tab switch), ignore all input
-    // to prevent camera/character desync
     const hasPointerLock = !!document.pointerLockElement;
-
     const kb = get();
     const now = performance.now() / 1000;
+    const weapon = getWeapon();
 
-    // Build input state — suppress when pointer not locked
+    // Build input state
     const input: InputState = {
       forward: hasPointerLock && kb.forward,
       backward: hasPointerLock && kb.backward,
@@ -292,24 +350,45 @@ export function Player(props: { position?: [number, number, number] }) {
     });
     playerState.stance = newStance;
 
+    // ---- Reload (R key, single press) ----
+    const reloadJust = input.reload && !reloadPressedRef.current;
+    reloadPressedRef.current = input.reload;
+
+    if (reloadJust && !playerState.isReloading && playerState.ammo < weapon.magSize && playerState.reserveAmmo > 0) {
+      playerState.isReloading = true;
+      playerState.reloadTimer = weapon.reloadTime;
+    }
+
+    // Reload timer countdown
+    if (playerState.isReloading) {
+      playerState.reloadTimer -= delta;
+      if (playerState.reloadTimer <= 0) {
+        const needed = weapon.magSize - playerState.ammo;
+        const available = Math.min(needed, playerState.reserveAmmo);
+        playerState.ammo += available;
+        playerState.reserveAmmo -= available;
+        playerState.isReloading = false;
+        playerState.reloadTimer = 0;
+      }
+    }
+
+    // ---- Fire mode toggle (B key, single press) ----
+    const fireModeJust = hasPointerLock && (kb as any).fireMode && !fireModePressedRef.current;
+    fireModePressedRef.current = hasPointerLock && !!(kb as any).fireMode;
+    // Also handle via keyboard event listener for B key
+    // (B is not in keyMap, so we handle via separate detection below)
+
     // ---- Pending shot from sprint-to-shoot transition ----
     if (pendingShootTimeRef.current > 0 && now >= pendingShootTimeRef.current) {
       pendingShootTimeRef.current = 0;
-      // Fire the delayed shot (reuse executeShot logic inline)
-      shootRef.current = true;
-      playerState.lastFireTime = now;
-      playerState.consecutiveShots++;
-      sprintLockUntilRef.current = now + 0.5;
-      if (shotSfxRef.current) { shotSfxRef.current.stop(); shotSfxRef.current.play(); }
-      if (leftHandBone.current && rightHandBone.current) {
-        leftHandOrigRot.current.copy(leftHandBone.current.rotation);
-        rightHandOrigRot.current.copy(rightHandBone.current.rotation);
-        recoilActive.current = true;
-        recoilStartTime.current = Date.now();
+      executeShot();
+    }
+
+    // ---- Auto fire (hold LMB in auto mode) ----
+    if (mouseHeldRef.current && playerState.fireMode === FireMode.Auto && !playerState.isReloading && playerState.ammo > 0) {
+      if (now - playerState.lastFireTime >= weapon.fireCooldown && !shootRef.current && !playerState.isSprinting) {
+        executeShot();
       }
-      muzzleFlashActive.current = true;
-      muzzleFlashStartTime.current = Date.now();
-      setTimeout(() => { shootRef.current = false; }, 50);
     }
 
     // ---- Sprint ----
@@ -319,9 +398,9 @@ export function Player(props: { position?: [number, number, number] }) {
 
     // ---- Aim ----
     playerState.isAiming = input.aim;
-
-    // Cancel sprint while aiming
     if (playerState.isAiming) playerState.isSprinting = false;
+
+    // Cancel reload when switching actions (optional: keep reload going)
 
     // ---- Free look ----
     playerState.isFreeLooking = input.freeLook;
@@ -386,11 +465,9 @@ export function Player(props: { position?: [number, number, number] }) {
     );
 
     if (group.current) {
-      // When no pointer lock, snap instantly to prevent desync after tab switch
       const slerpFactor = !hasPointerLock || playerState.isAiming ? 1 : 0.15;
 
       if (playerState.isSprinting) {
-        // During sprint: face movement direction instead of camera direction
         let moveZ = 0, moveX = 0;
         if (input.forward) moveZ -= 1;
         if (input.backward) moveZ += 1;
@@ -465,15 +542,10 @@ export function Player(props: { position?: [number, number, number] }) {
       bones[3].rotation.set(0, 0, 0);
 
       if (playerState.isSprinting) {
-        // Sprint: spine follows pitch for head/torso tracking + slight forward lean
-        // Arms are fully animation-driven (no Shoulder override)
-        const sprintLean = 0.35; // ~20 degrees forward lean
+        const sprintLean = 0.35;
         bones[3].rotateOnAxis(spineAxis, pitch * 0.5 + sprintLean);
       } else {
-        // Normal: spine follows pitch for aiming
         bones[3].rotateOnAxis(spineAxis, pitch * 0.7);
-
-        // Lean: rotate spine on Z (positive lean = right, body tilts right)
         if (Math.abs(playerState.lean) > 0.01) {
           bones[3].rotateZ(playerState.lean * LEAN.maxAngle);
         }
@@ -486,7 +558,6 @@ export function Player(props: { position?: [number, number, number] }) {
     // Spread update
     playerState.currentSpread = updateSpread({ state: playerState, input, delta });
 
-    // Shooting spread bump
     if (justFired) {
       const cfg = playerState.isAiming ? SHOOTING.ads : SHOOTING.hipFire;
       playerState.currentSpread = Math.min(
@@ -495,17 +566,16 @@ export function Player(props: { position?: [number, number, number] }) {
       );
     }
 
-    // Recoil update
+    // Recoil update (use per-weapon recoil values)
     const recoilResult = updateRecoil({ state: playerState, justFired, delta });
     playerState.recoilPitch = recoilResult.recoilPitch;
     playerState.recoilYaw = recoilResult.recoilYaw;
 
-    // Apply recoil to mouse — kick UP (decrease y) + random horizontal jitter
+    // Apply recoil to mouse — kick UP + random horizontal jitter
     if (justFired) {
-      // Vertical: small upward kick (negative y = look up)
-      mouseRotation.current.y -= playerState.recoilPitch * 0.5;
-      // Horizontal: random left/right jitter (each shot different)
-      mouseRotation.current.x += playerState.recoilYaw * 0.5;
+      mouseRotation.current.y -= weapon.recoilVertical * (Math.PI / 180) * 0.5;
+      const hJitter = (Math.random() * 2 - 1) * weapon.recoilHorizontal * (Math.PI / 180) * 0.5;
+      mouseRotation.current.x += hJitter;
     }
 
     // Ray-cast shooting
@@ -517,6 +587,22 @@ export function Player(props: { position?: [number, number, number] }) {
       spread: playerState.currentSpread,
       shootRayDirection: shootRayDir,
     });
+
+    // ---- Report state to HUD ----
+    if (props.onStateUpdate) {
+      props.onStateUpdate({
+        stance: playerState.stance,
+        isAiming: playerState.isAiming,
+        isSprinting: playerState.isSprinting,
+        weaponName: weapon.name,
+        ammo: playerState.ammo,
+        magSize: weapon.magSize,
+        reserveAmmo: playerState.reserveAmmo,
+        isReloading: playerState.isReloading,
+        fireMode: playerState.fireMode,
+        spread: playerState.currentSpread,
+      });
+    }
   });
 
   return (

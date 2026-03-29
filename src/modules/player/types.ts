@@ -5,7 +5,7 @@
 import type * as THREE from 'three';
 import type { GLTF } from 'three-stdlib';
 import type { RapierRigidBody } from '@react-three/rapier';
-import type { Stance } from './constants';
+import type { Stance, FireMode } from './constants';
 
 // --- GLTF Model ---
 export type GLTFResult = GLTF & {
@@ -64,5 +64,12 @@ export interface PlayerState {
   lastFireTime: number;
   lastJumpTime: number;
   consecutiveShots: number;
+  // Weapon system
+  currentWeaponIndex: number;
+  ammo: number;             // current magazine
+  reserveAmmo: number;      // reserve pool
+  isReloading: boolean;
+  reloadTimer: number;      // countdown (seconds remaining)
+  fireMode: FireMode;
   _collisionRatio?: number; // internal: tracks collision recovery progress
 }

@@ -465,26 +465,13 @@ export function Player(props: { position?: [number, number, number] }) {
       bones[3].rotation.set(0, 0, 0);
 
       if (playerState.isSprinting) {
-        // Sprint: spine follows pitch (head & torso track camera)
-        bones[3].rotateOnAxis(spineAxis, pitch * 0.7);
-
-        // Shoulders: cancel spine pitch, then tilt arms down 40 degrees
-        const armDownAngle = 0.7; // ~40 degrees
-        const compensate = -pitch * 0.7; // undo spine pitch on arms
-        if (bones[7]) {
-          bones[7].rotation.set(0, 0, 0);
-          bones[7].rotateX(compensate + armDownAngle);
-        }
-        if (bones[31]) {
-          bones[31].rotation.set(0, 0, 0);
-          bones[31].rotateX(compensate + armDownAngle);
-        }
+        // Sprint: spine follows pitch for head/torso tracking + slight forward lean
+        // Arms are fully animation-driven (no Shoulder override)
+        const sprintLean = 0.35; // ~20 degrees forward lean
+        bones[3].rotateOnAxis(spineAxis, pitch * 0.5 + sprintLean);
       } else {
         // Normal: spine follows pitch for aiming
         bones[3].rotateOnAxis(spineAxis, pitch * 0.7);
-
-        // Reset shoulders to default (animation-driven)
-        // (no override needed — animation handles arm pose)
 
         // Lean: rotate spine on Z (positive lean = right, body tilts right)
         if (Math.abs(playerState.lean) > 0.01) {

@@ -427,7 +427,7 @@ export function Player(props: { position?: [number, number, number] }) {
       if (playerState.isSprinting) {
         // Sprint: tilt upper body forward (lowered gun posture)
         const spineAxis = new THREE.Vector3(1, 0, 0);
-        bones[3].rotateOnAxis(spineAxis, 0.7); // lean forward ~40 degrees
+        bones[3].rotateOnAxis(spineAxis, 0.35); // lean forward ~20 degrees
       } else {
         // Normal: spine follows pitch for aiming
         const spineAxis = new THREE.Vector3(1, 0, -0.5);

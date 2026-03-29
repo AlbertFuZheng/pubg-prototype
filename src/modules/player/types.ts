@@ -64,4 +64,5 @@ export interface PlayerState {
   lastFireTime: number;
   lastJumpTime: number;
   consecutiveShots: number;
+  _collisionRatio?: number; // internal: tracks collision recovery progress
 }

@@ -117,7 +117,7 @@ export function updateCamera(params: {
 
   // Collision detection
   const headPos = playerBase.clone();
-  let finalCameraPos = targetCameraPos;
+  let hasCollision = false;
 
   if (world) {
     const collisionResult = checkCameraCollision(
@@ -130,24 +130,35 @@ export function updateCamera(params: {
       const collDist = collisionResult.position.distanceTo(headPos);
       const naturalDist = targetCameraPos.distanceTo(headPos);
       if (collDist < naturalDist - 0.1) {
-        finalCameraPos = collisionResult.position;
+        hasCollision = true;
+        // Track the collision distance ratio for smooth recovery
+        state._collisionRatio = collDist / naturalDist;
+        smoothedCameraPosition.current.copy(collisionResult.position);
       }
     }
   }
 
-  // Camera position: snap in when colliding (responsive), lerp out when recovering (smooth)
-  const prev = smoothedCameraPosition.current;
-  const prevDist = prev.distanceTo(headPos);
-  const finalDist = finalCameraPos.distanceTo(headPos);
-
-  if (finalDist < prevDist - 0.01) {
-    // Moving closer (collision push-in): snap immediately
-    prev.copy(finalCameraPos);
+  if (hasCollision) {
+    // Collision: use the pushed-in position
+    camera.position.copy(smoothedCameraPosition.current);
+  } else if (state._collisionRatio !== undefined && state._collisionRatio < 0.95) {
+    // Recovering from collision: lerp the ratio back to 1.0
+    state._collisionRatio += (1.0 - state._collisionRatio) * Math.min(1, delta * 6);
+    if (state._collisionRatio > 0.95) {
+      state._collisionRatio = undefined; // recovery complete
+      smoothedCameraPosition.current.copy(targetCameraPos);
+      camera.position.copy(targetCameraPos);
+    } else {
+      // Interpolate between head and target at current ratio
+      smoothedCameraPosition.current.copy(headPos).lerp(targetCameraPos, state._collisionRatio);
+      camera.position.copy(smoothedCameraPosition.current);
+    }
   } else {
-    // Moving back out (collision recovery): smooth lerp
-    prev.lerp(finalCameraPos, Math.min(1, delta * 6));
+    // No collision, no recovery: set directly (rigid follow)
+    state._collisionRatio = undefined;
+    smoothedCameraPosition.current.copy(targetCameraPos);
+    camera.position.copy(targetCameraPos);
   }
-  camera.position.copy(prev);
 
   // FOV transition
   if (camera instanceof THREE.PerspectiveCamera) {

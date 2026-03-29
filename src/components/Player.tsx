@@ -513,9 +513,12 @@ export function Player(props: { position?: [number, number, number] }) {
     playerState.recoilPitch = recoilResult.recoilPitch;
     playerState.recoilYaw = recoilResult.recoilYaw;
 
-    // Apply recoil to mouse (player needs to "pull down" to compensate)
+    // Apply recoil to mouse — kick UP (decrease y) + random horizontal jitter
     if (justFired) {
-      mouseRotation.current.y += playerState.recoilPitch * 0.3;
+      // Vertical: small upward kick (negative y = look up)
+      mouseRotation.current.y -= playerState.recoilPitch * 0.5;
+      // Horizontal: random left/right jitter (each shot different)
+      mouseRotation.current.x += playerState.recoilYaw * 0.5;
     }
 
     // Ray-cast shooting

@@ -93,7 +93,7 @@ export const STANCE_CONFIG = {
 // --- 探头 ---
 export const LEAN = {
   maxAngle: 30 * (Math.PI / 180), // 30 degrees (larger body lean)
-  headOffset: 0.65, // larger horizontal offset
+  headOffset: 0.325, // horizontal offset (half of previous)
   cameraDownOffset: 0.12, // slight downward camera shift when leaning
   lerpSpeed: 8, // per second (delta-time based)
 } as const;

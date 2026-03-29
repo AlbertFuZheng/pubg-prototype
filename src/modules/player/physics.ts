@@ -86,9 +86,8 @@ export function updateMovementPhysics(params: {
     true,
   );
 
-  // Smooth player position for camera
+  // Use rigid body position directly for camera (no lerp = no drift during movement)
   const rb = controls.current;
   const t = rb.translation();
-  const currentPos = new THREE.Vector3(t.x, t.y + stanceCfg.cameraHeight, t.z);
-  smoothedPlayerPosition.current.lerp(currentPos, Math.min(1, delta * 8));
+  smoothedPlayerPosition.current.set(t.x, t.y + stanceCfg.cameraHeight, t.z);
 }

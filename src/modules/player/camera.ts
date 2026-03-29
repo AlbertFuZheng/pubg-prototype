@@ -94,21 +94,24 @@ export function updateCamera(params: {
   const totalRightOffset = rightOffset + leanOffset;
   const leanDownOffset = Math.abs(state.lean) * LEAN.cameraDownOffset;
 
-  // Orbital position based on pitch
+  // Orbital position based on pitch — use fixed standing height for orbit,
+  // stance changes only apply as pure Y offset (no forward/backward shift)
+  const standingHeight = STANCE_CONFIG[Stance.Standing].cameraHeight;
+  const stanceDropOffset = standingHeight - state.cameraHeight; // positive when crouching/prone
   const orbitAngle = pitch;
   const cameraOffset = new THREE.Vector3(
     -totalRightOffset,
-    Math.sin(orbitAngle) * distance + state.cameraHeight - leanDownOffset,
+    Math.sin(orbitAngle) * distance + standingHeight - leanDownOffset,
     -Math.cos(orbitAngle) * distance,
   );
 
   cameraOffset.applyQuaternion(playerYRotation);
 
-  // Player base position (feet-level from physics body, add smoothed camera height)
+  // Player base position (feet-level from physics body)
   const playerBase = smoothedPlayerPosition.current;
   const targetCameraPos = new THREE.Vector3(
     playerBase.x + cameraOffset.x,
-    playerBase.y + cameraOffset.y - stanceCfg.cameraHeight, // subtract since cameraHeight is already in offset
+    playerBase.y + cameraOffset.y - standingHeight - stanceDropOffset,
     playerBase.z + cameraOffset.z,
   );
 

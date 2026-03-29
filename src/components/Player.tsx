@@ -236,23 +236,27 @@ export function Player(props: { position?: [number, number, number] }) {
   useFrame((threeState, delta) => {
     if (!controls.current) return;
 
+    // When pointer lock is lost (e.g. tab switch), ignore all input
+    // to prevent camera/character desync
+    const hasPointerLock = !!document.pointerLockElement;
+
     const kb = get();
     const now = performance.now() / 1000;
 
-    // Build input state
+    // Build input state — suppress when pointer not locked
     const input: InputState = {
-      forward: kb.forward,
-      backward: kb.backward,
-      left: kb.left,
-      right: kb.right,
-      sprint: kb.sprint,
-      jump: kb.jump,
-      crouch: kb.crouch,
-      prone: kb.prone,
-      leanLeft: kb.leanLeft,
-      leanRight: kb.leanRight,
-      freeLook: kb.freeLook,
-      shoot: shootRef.current,
+      forward: hasPointerLock && kb.forward,
+      backward: hasPointerLock && kb.backward,
+      left: hasPointerLock && kb.left,
+      right: hasPointerLock && kb.right,
+      sprint: hasPointerLock && kb.sprint,
+      jump: hasPointerLock && kb.jump,
+      crouch: hasPointerLock && kb.crouch,
+      prone: hasPointerLock && kb.prone,
+      leanLeft: hasPointerLock && kb.leanLeft,
+      leanRight: hasPointerLock && kb.leanRight,
+      freeLook: hasPointerLock && kb.freeLook,
+      shoot: hasPointerLock && shootRef.current,
       aim: aimRef.current,
       reload: kb.reload,
     };
@@ -343,7 +347,9 @@ export function Player(props: { position?: [number, number, number] }) {
     );
 
     if (group.current) {
-      group.current.quaternion.slerp(playerYRotation, playerState.isAiming ? 1 : 0.15);
+      // When no pointer lock, snap instantly to prevent desync after tab switch
+      const slerpFactor = !hasPointerLock || playerState.isAiming ? 1 : 0.15;
+      group.current.quaternion.slerp(playerYRotation, slerpFactor);
     }
 
     // ---- Physics movement ----

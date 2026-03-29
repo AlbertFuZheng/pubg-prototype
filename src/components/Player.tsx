@@ -104,6 +104,10 @@ export function Player(props: { position?: [number, number, number] }) {
   const crouchPressedRef = useRef(false);
   const pronePressedRef = useRef(false);
 
+  // Sprint-to-shoot transition
+  const sprintLockUntilRef = useRef(0); // timestamp: no sprint allowed until this time
+  const pendingShootTimeRef = useRef(0); // timestamp: delayed shot fires at this time
+
   // Keyboard controls
   const [, get] = useKeyboardControls();
 
@@ -159,36 +163,50 @@ export function Player(props: { position?: [number, number, number] }) {
       }
     };
 
+    const executeShot = () => {
+      const now = performance.now() / 1000;
+      shootRef.current = true;
+      playerState.lastFireTime = now;
+      playerState.consecutiveShots++;
+      // Lock sprint for 0.3s after firing
+      sprintLockUntilRef.current = now + 0.3;
+
+      // Audio
+      if (shotSfxRef.current) {
+        shotSfxRef.current.stop();
+        shotSfxRef.current.play();
+      }
+
+      // Visual recoil
+      if (leftHandBone.current && rightHandBone.current) {
+        leftHandOrigRot.current.copy(leftHandBone.current.rotation);
+        rightHandOrigRot.current.copy(rightHandBone.current.rotation);
+        recoilActive.current = true;
+        recoilStartTime.current = Date.now();
+      }
+
+      // Muzzle flash
+      muzzleFlashActive.current = true;
+      muzzleFlashStartTime.current = Date.now();
+
+      setTimeout(() => {
+        shootRef.current = false;
+      }, 50);
+    };
+
     const onMouseDown = (e: MouseEvent) => {
       if (e.button === 0) {
         // Left click = shoot
         const now = performance.now() / 1000;
         if (now - playerState.lastFireTime >= SHOOTING.fireCooldown) {
-          shootRef.current = true;
-          playerState.lastFireTime = now;
-          playerState.consecutiveShots++;
-
-          // Audio
-          if (shotSfxRef.current) {
-            shotSfxRef.current.stop();
-            shotSfxRef.current.play();
+          if (playerState.isSprinting) {
+            // Sprinting: exit sprint immediately, delay shot by 0.1s for turn-back
+            playerState.isSprinting = false;
+            sprintLockUntilRef.current = now + 0.3;
+            pendingShootTimeRef.current = now + 0.1;
+          } else {
+            executeShot();
           }
-
-          // Visual recoil
-          if (leftHandBone.current && rightHandBone.current) {
-            leftHandOrigRot.current.copy(leftHandBone.current.rotation);
-            rightHandOrigRot.current.copy(rightHandBone.current.rotation);
-            recoilActive.current = true;
-            recoilStartTime.current = Date.now();
-          }
-
-          // Muzzle flash
-          muzzleFlashActive.current = true;
-          muzzleFlashStartTime.current = Date.now();
-
-          setTimeout(() => {
-            shootRef.current = false;
-          }, 50);
         }
       } else if (e.button === 2) {
         aimRef.current = true;
@@ -274,9 +292,30 @@ export function Player(props: { position?: [number, number, number] }) {
     });
     playerState.stance = newStance;
 
+    // ---- Pending shot from sprint-to-shoot transition ----
+    if (pendingShootTimeRef.current > 0 && now >= pendingShootTimeRef.current) {
+      pendingShootTimeRef.current = 0;
+      // Fire the delayed shot (reuse executeShot logic inline)
+      shootRef.current = true;
+      playerState.lastFireTime = now;
+      playerState.consecutiveShots++;
+      sprintLockUntilRef.current = now + 0.3;
+      if (shotSfxRef.current) { shotSfxRef.current.stop(); shotSfxRef.current.play(); }
+      if (leftHandBone.current && rightHandBone.current) {
+        leftHandOrigRot.current.copy(leftHandBone.current.rotation);
+        rightHandOrigRot.current.copy(rightHandBone.current.rotation);
+        recoilActive.current = true;
+        recoilStartTime.current = Date.now();
+      }
+      muzzleFlashActive.current = true;
+      muzzleFlashStartTime.current = Date.now();
+      setTimeout(() => { shootRef.current = false; }, 50);
+    }
+
     // ---- Sprint ----
     const stanceCfg = STANCE_CONFIG[playerState.stance];
-    playerState.isSprinting = input.sprint && input.forward && stanceCfg.canSprint && !playerState.isAiming;
+    const sprintLocked = now < sprintLockUntilRef.current;
+    playerState.isSprinting = input.sprint && input.forward && stanceCfg.canSprint && !playerState.isAiming && !sprintLocked;
 
     // ---- Aim ----
     playerState.isAiming = input.aim;

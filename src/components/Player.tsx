@@ -421,13 +421,21 @@ export function Player(props: { position?: [number, number, number] }) {
 
     // ---- Spine aiming ----
     if (bones.length > 3) {
-      const spineAxis = new THREE.Vector3(1, 0, -0.5);
       bones[3].rotation.set(0, 0, 0);
-      bones[3].rotateOnAxis(spineAxis, pitch * 0.7);
 
-      // Lean: rotate spine on Z (positive lean = right, body tilts right)
-      if (Math.abs(playerState.lean) > 0.01) {
-        bones[3].rotateZ(playerState.lean * LEAN.maxAngle);
+      if (playerState.isSprinting) {
+        // Sprint: tilt upper body forward slightly (lowered gun posture)
+        const spineAxis = new THREE.Vector3(1, 0, 0);
+        bones[3].rotateOnAxis(spineAxis, 0.3); // lean forward ~17 degrees
+      } else {
+        // Normal: spine follows pitch for aiming
+        const spineAxis = new THREE.Vector3(1, 0, -0.5);
+        bones[3].rotateOnAxis(spineAxis, pitch * 0.7);
+
+        // Lean: rotate spine on Z (positive lean = right, body tilts right)
+        if (Math.abs(playerState.lean) > 0.01) {
+          bones[3].rotateZ(playerState.lean * LEAN.maxAngle);
+        }
       }
     }
 

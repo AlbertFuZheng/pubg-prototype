@@ -460,17 +460,31 @@ export function Player(props: { position?: [number, number, number] }) {
     });
 
     // ---- Spine aiming ----
-    if (bones.length > 3) {
+    if (bones.length > 31) {
+      const spineAxis = new THREE.Vector3(1, 0, -0.5);
       bones[3].rotation.set(0, 0, 0);
 
       if (playerState.isSprinting) {
-        // Sprint: tilt upper body forward (lowered gun posture)
-        const spineAxis = new THREE.Vector3(1, 0, 0);
-        bones[3].rotateOnAxis(spineAxis, 0.35); // lean forward ~20 degrees
+        // Sprint: spine follows pitch (head & torso track camera)
+        bones[3].rotateOnAxis(spineAxis, pitch * 0.7);
+
+        // Shoulders: cancel spine pitch, then tilt arms down 40 degrees
+        const armDownAngle = 0.7; // ~40 degrees
+        const compensate = -pitch * 0.7; // undo spine pitch on arms
+        if (bones[7]) {
+          bones[7].rotation.set(0, 0, 0);
+          bones[7].rotateX(compensate + armDownAngle);
+        }
+        if (bones[31]) {
+          bones[31].rotation.set(0, 0, 0);
+          bones[31].rotateX(compensate + armDownAngle);
+        }
       } else {
         // Normal: spine follows pitch for aiming
-        const spineAxis = new THREE.Vector3(1, 0, -0.5);
         bones[3].rotateOnAxis(spineAxis, pitch * 0.7);
+
+        // Reset shoulders to default (animation-driven)
+        // (no override needed — animation handles arm pose)
 
         // Lean: rotate spine on Z (positive lean = right, body tilts right)
         if (Math.abs(playerState.lean) > 0.01) {

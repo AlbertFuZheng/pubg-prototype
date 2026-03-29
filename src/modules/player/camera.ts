@@ -86,7 +86,7 @@ export function updateCamera(params: {
   // Camera distance & offsets based on mode
   const distance = isADS ? CAMERA.adsDistance : CAMERA.defaultDistance;
   const rightOffset = isADS ? CAMERA.adsRightOffset : CAMERA.defaultRightOffset;
-  const baseFov = isADS ? CAMERA.adsFov : CAMERA.defaultFov + (isSprint ? CAMERA.sprintFovBoost : 0);
+  const baseFov = isADS ? CAMERA.adsFov : CAMERA.defaultFov;
   const lerpSpeed = isADS ? CAMERA.adsLerpSpeed : CAMERA.defaultLerpSpeed;
 
   // Lean camera offset (horizontal + slight downward)
@@ -135,10 +135,19 @@ export function updateCamera(params: {
     }
   }
 
-  // Set camera position directly (player position is already smoothed in physics.ts)
-  // No extra lerp here — keeps camera-to-player offset rigid during yaw rotation
-  smoothedCameraPosition.current.copy(finalCameraPos);
-  camera.position.copy(finalCameraPos);
+  // Camera position: snap in when colliding (responsive), lerp out when recovering (smooth)
+  const prev = smoothedCameraPosition.current;
+  const prevDist = prev.distanceTo(headPos);
+  const finalDist = finalCameraPos.distanceTo(headPos);
+
+  if (finalDist < prevDist - 0.01) {
+    // Moving closer (collision push-in): snap immediately
+    prev.copy(finalCameraPos);
+  } else {
+    // Moving back out (collision recovery): smooth lerp
+    prev.lerp(finalCameraPos, Math.min(1, delta * 6));
+  }
+  camera.position.copy(prev);
 
   // FOV transition
   if (camera instanceof THREE.PerspectiveCamera) {

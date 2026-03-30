@@ -96,13 +96,21 @@ export const useTouchStore = create<TouchStoreState>((set) => ({
 }));
 
 /**
- * 检测是否为移动触屏设备
+ * 检测是否为移动触屏设备（排除触屏笔记本/PC）
  */
 export function detectMobile(): boolean {
   if (typeof window === 'undefined') return false;
-  return (
-    'ontouchstart' in window ||
-    navigator.maxTouchPoints > 0 ||
-    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-  );
+  
+  // 首先检查 UA 中是否有明确的移动端标识
+  const mobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
+  // iPad 的 Safari 在新版本中 UA 伪装成 Mac，需要特殊检测
+  const isIPad = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+  
+  // 有触摸能力且 UA 是移动设备，或者是 iPad
+  const hasTouchCapability = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  
+  // 最终判断：必须有 UA 标识 或 iPad 才算移动端
+  // 不能单靠 ontouchstart，因为触屏笔记本也有这个
+  return (mobileUA || isIPad) && hasTouchCapability;
 }

@@ -113,16 +113,16 @@ export const SHOOTING = {
   fireCooldown: 60 / 680,
 
   hipFire: {
-    baseSpread: 3.0,
-    moveSpreadBonus: 1.5,
-    maxSpread: 8.0,
+    baseSpread: 0.6,
+    moveSpreadBonus: 0.3,
+    maxSpread: 1.6,
     recoveryRate: 5.0,
   },
 
   ads: {
-    baseSpread: 0.3,
-    moveSpreadBonus: 0.8,
-    maxSpread: 2.0,
+    baseSpread: 0.06,
+    moveSpreadBonus: 0.16,
+    maxSpread: 0.4,
     recoveryRate: 8.0,
   },
 

@@ -39,9 +39,6 @@ export const HUD: React.FC<HUDProps> = ({
   isReloading,
   fireMode,
 }) => {
-  const ammoLow = ammo <= Math.ceil(magSize * 0.2);
-  const ammoEmpty = ammo <= 0;
-
   return (
     <>
       {/* Bottom-right: Weapon & Ammo */}
@@ -66,7 +63,7 @@ export const HUD: React.FC<HUDProps> = ({
           {weaponName} | {fireModeLabels[fireMode] ?? fireMode}
         </div>
 
-        {/* Ammo counter */}
+        {/* Ammo counter — infinite */}
         <div style={{
           display: 'flex',
           alignItems: 'baseline',
@@ -76,31 +73,13 @@ export const HUD: React.FC<HUDProps> = ({
           <span style={{
             fontSize: 36,
             fontWeight: 'bold',
-            color: ammoEmpty ? '#ff3333' : ammoLow ? '#ffaa33' : 'white',
+            color: 'white',
             textShadow: '0 0 8px rgba(0,0,0,0.8)',
             lineHeight: 1,
           }}>
-            {ammo}
-          </span>
-          <span style={{
-            fontSize: 16,
-            color: 'rgba(255,255,255,0.5)',
-          }}>
-            / {reserveAmmo}
+            ∞
           </span>
         </div>
-
-        {/* Reload indicator */}
-        {isReloading && (
-          <div style={{
-            color: '#ffcc00',
-            fontSize: 14,
-            marginTop: 4,
-            animation: 'pulse 0.8s infinite',
-          }}>
-            换弹中...
-          </div>
-        )}
 
         {/* Weapon slots */}
         <div style={{
@@ -109,7 +88,7 @@ export const HUD: React.FC<HUDProps> = ({
           justifyContent: 'flex-end',
           marginTop: 8,
         }}>
-          {['AKM', 'M416', 'AWM'].map((name, i) => (
+          {['AKM', 'M416'].map((name, i) => (
             <div
               key={name}
               style={{

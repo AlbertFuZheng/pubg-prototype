@@ -39,7 +39,6 @@ export interface GameState {
 export const WEAPONS = [
   { name: 'AKM', ammo: 30, maxAmmo: 30, reserve: 90, fireRate: 100, damage: 36 },
   { name: 'M416', ammo: 30, maxAmmo: 30, reserve: 90, fireRate: 86, damage: 31 },
-  { name: 'AWM', ammo: 5, maxAmmo: 5, reserve: 20, fireRate: 1850, damage: 120 },
 ]
 
 export const useGameStore = create<GameState>((set, get) => ({

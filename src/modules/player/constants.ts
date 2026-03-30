@@ -17,6 +17,11 @@ export const ADS_MOVE_MULTIPLIER = 0.6;
 export const MOUSE_SENSITIVITY = 0.002;
 export const ADS_SENSITIVITY_MULTIPLIER = 0.6; // 开镜时降低灵敏度
 
+// --- 移动端触控灵敏度 ---
+export const TOUCH_SENSITIVITY = 0.004; // 触摸滑动视角灵敏度
+export const TOUCH_ADS_SENSITIVITY_MULTIPLIER = 0.5; // 触摸开镜灵敏度倍率
+export const JOYSTICK_SPRINT_THRESHOLD = 0.85; // 摇杆推到多远触发冲刺
+
 // --- 摄像机参数 ---
 export const CAMERA = {
   // 默认TPP视角（越肩，PUBG风格紧凑构图）
@@ -167,6 +172,7 @@ export interface WeaponConfig {
   recoilVertical: number;   // degrees per shot
   recoilHorizontal: number; // max random horizontal range (degrees)
   availableModes: FireMode[];
+  sfx: string;              // sound effect file path (relative to public/)
 }
 
 export const WEAPONS: WeaponConfig[] = [
@@ -181,6 +187,7 @@ export const WEAPONS: WeaponConfig[] = [
     recoilVertical: 0.10,
     recoilHorizontal: 0.15,
     availableModes: [FireMode.Auto, FireMode.Single],
+    sfx: 'sfx/ak47-shot.mp3',
   },
   {
     name: 'M416',
@@ -193,19 +200,9 @@ export const WEAPONS: WeaponConfig[] = [
     recoilVertical: 0.08,
     recoilHorizontal: 0.12,
     availableModes: [FireMode.Auto, FireMode.Single],
+    sfx: 'sfx/m416-shot.mp3',
   },
-  {
-    name: 'AWM',
-    fireRate: 26,           // bolt-action, ~26 RPM
-    fireCooldown: 60 / 26,
-    magSize: 5,
-    reserveAmmo: 20,
-    reloadTime: 3.6,
-    damage: 120,
-    recoilVertical: 0.20,
-    recoilHorizontal: 0.05,
-    availableModes: [FireMode.Single],
-  },
+
 ];
 
 // --- 动画索引映射 ---

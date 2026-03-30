@@ -70,6 +70,17 @@ export function updateRecoil(params: {
 }
 
 /**
+ * Hit result from ray-cast shooting.
+ */
+export interface ShootHitResult {
+  hit: boolean;
+  hitPoint?: THREE.Vector3;
+  hitNormal?: THREE.Vector3;
+  rayOrigin?: THREE.Vector3;
+  rayDirection?: THREE.Vector3;
+}
+
+/**
  * Perform ray-cast shooting.
  */
 export function handleShooting(params: {
@@ -79,10 +90,10 @@ export function handleShooting(params: {
   shoot: boolean;
   spread: number; // current spread in degrees
   shootRayDirection: React.MutableRefObject<THREE.Vector3>;
-}): boolean {
+}): ShootHitResult {
   const { world, camera, controls, shoot, spread, shootRayDirection } = params;
 
-  if (!shoot || !controls.current) return false;
+  if (!shoot || !controls.current) return { hit: false };
 
   // Base direction from camera
   const baseDir = camera.getWorldDirection(new THREE.Vector3());
@@ -128,10 +139,34 @@ export function handleShooting(params: {
           hitPoint,
           true,
         );
-        return true;
+
+        // Compute hit normal from the collider shape
+        const hitNormal = new THREE.Vector3().copy(shootRayDirection.current).negate().normalize();
+        // Try to get a better normal from the ray's feature
+        // For flat surfaces, use the ray direction inverted as a fallback
+        // Rapier doesn't directly provide normals from castRay, so we approximate:
+        // Use the dominant axis of the hit direction for flat surfaces
+        const absX = Math.abs(hitNormal.x);
+        const absY = Math.abs(hitNormal.y);
+        const absZ = Math.abs(hitNormal.z);
+        if (absY > absX && absY > absZ) {
+          hitNormal.set(0, Math.sign(hitNormal.y), 0);
+        } else if (absX > absZ) {
+          hitNormal.set(Math.sign(hitNormal.x), 0, 0);
+        } else {
+          hitNormal.set(0, 0, Math.sign(hitNormal.z));
+        }
+
+        return {
+          hit: true,
+          hitPoint: hitPoint.clone(),
+          hitNormal,
+          rayOrigin: rayOrigin.clone(),
+          rayDirection: shootRayDirection.current.clone(),
+        };
       }
     }
   }
 
-  return false;
+  return { hit: false, rayOrigin: rayOrigin.clone(), rayDirection: shootRayDirection.current.clone() };
 }

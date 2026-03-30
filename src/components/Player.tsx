@@ -21,7 +21,9 @@ import {
   MUZZLE_FLASH_LIGHT_DISTANCE,
   WEAPONS,
   FireMode,
+  JOYSTICK_SPRINT_THRESHOLD,
 } from '../modules/player/constants';
+import { touchInput, consumeLookDelta, consumeWeaponSlot, consumeFireModeToggle, useTouchStore } from '../stores/touchStore';
 import type { GLTFResult, PlayerState, InputState } from '../modules/player/types';
 import { useAnimationSetup } from '../modules/player/useAnimationSetup';
 import { handleMovement } from '../modules/player/movement';
@@ -30,7 +32,9 @@ import { handleRecoil } from '../modules/player/recoil';
 import { handleMuzzleFlash, createMuzzleFlashTexture } from '../modules/player/muzzleFlash';
 import { updateCamera } from '../modules/player/camera';
 import { updateMovementPhysics } from '../modules/player/physics';
-import { handleShooting, updateSpread, updateRecoil } from '../modules/player/shooting';
+import { handleShooting, updateSpread } from '../modules/player/shooting';
+import type { ShootHitResult } from '../modules/player/shooting';
+import type { BulletEffectsAPI } from './BulletEffects';
 import { handleStanceChange } from '../modules/player/stance';
 import { updateLean } from '../modules/player/lean';
 import { updateFreeLook } from '../modules/player/freeLook';
@@ -54,6 +58,7 @@ export interface PlayerHUDState {
 export function Player(props: {
   position?: [number, number, number];
   onStateUpdate?: (state: PlayerHUDState) => void;
+  bulletEffectsRef?: React.RefObject<BulletEffectsAPI | null>;
 }) {
   const group = useRef<THREE.Group>(null);
   const mouseRotation = useRef({ x: 0, y: 0 });
@@ -102,7 +107,7 @@ export function Player(props: {
   // Shooting refs
   const shootRef = useRef(false);
   const aimRef = useRef(false);
-  const shotSfxRef = useRef<THREE.PositionalAudio>(null);
+  const shotSfxRefs = useRef<(THREE.PositionalAudio | null)[]>(WEAPONS.map(() => null));
   const mouseHeldRef = useRef(false); // LMB held for auto fire
 
   // Bone refs
@@ -142,6 +147,9 @@ export function Player(props: {
   // Keyboard controls
   const [, get] = useKeyboardControls();
 
+  // Mobile detection
+  const isMobile = useTouchStore((s) => s.isMobile);
+
   // Action setter with fade
   const currentActionRef = useRef<THREE.AnimationAction | null>(null);
   const setAction = useCallback((newAction: THREE.AnimationAction) => {
@@ -179,19 +187,20 @@ export function Player(props: {
   // Helper: execute a shot (shared between immediate and delayed fire)
   const executeShot = useCallback(() => {
     const weapon = WEAPONS[playerState.currentWeaponIndex] ?? WEAPONS[1];
-    if (playerState.ammo <= 0 || playerState.isReloading) return;
+    if (playerState.isReloading) return;
 
     const now = performance.now() / 1000;
     shootRef.current = true;
     playerState.lastFireTime = now;
     playerState.consecutiveShots++;
-    playerState.ammo--;
     sprintLockUntilRef.current = now + 0.5;
 
-    // Audio
-    if (shotSfxRef.current) {
-      shotSfxRef.current.stop();
-      shotSfxRef.current.play();
+    // Audio — play the sound for the current weapon
+    const sfx = shotSfxRefs.current[playerState.currentWeaponIndex];
+    if (sfx) {
+      sfx.setVolume(0.3);
+      sfx.stop();
+      sfx.play();
     }
 
     // Visual recoil
@@ -205,8 +214,6 @@ export function Player(props: {
     // Muzzle flash
     muzzleFlashActive.current = true;
     muzzleFlashStartTime.current = Date.now();
-
-    setTimeout(() => { shootRef.current = false; }, 50);
   }, [playerState]);
 
   // PointerLock + mouse + shooting input
@@ -236,7 +243,7 @@ export function Player(props: {
         // Immediate shot attempt (for single fire or first auto shot)
         const now = performance.now() / 1000;
         const weapon = WEAPONS[playerState.currentWeaponIndex] ?? WEAPONS[1];
-        if (now - playerState.lastFireTime >= weapon.fireCooldown && !playerState.isReloading && playerState.ammo > 0) {
+        if (now - playerState.lastFireTime >= weapon.fireCooldown && !playerState.isReloading) {
           if (playerState.isSprinting) {
             playerState.isSprinting = false;
             sprintLockUntilRef.current = now + 0.5;
@@ -273,8 +280,8 @@ export function Player(props: {
           playerState.fireMode = modes[(currentIdx + 1) % modes.length];
         }
       }
-      // Weapon switch: 1, 2, 3
-      if (e.code === 'Digit1' || e.code === 'Digit2' || e.code === 'Digit3') {
+      // Weapon switch: 1, 2
+      if (e.code === 'Digit1' || e.code === 'Digit2') {
         const slot = parseInt(e.code.replace('Digit', '')) - 1;
         if (slot !== playerState.currentWeaponIndex && slot >= 0 && slot < WEAPONS.length) {
           const newWeapon = WEAPONS[slot];
@@ -315,26 +322,60 @@ export function Player(props: {
     if (!controls.current) return;
 
     const hasPointerLock = !!document.pointerLockElement;
+    const canInput = hasPointerLock || isMobile; // 移动端无需 PointerLock
     const kb = get();
     const now = performance.now() / 1000;
     const weapon = getWeapon();
 
-    // Build input state
+    // ---- 移动端：消费触控视角增量 ----
+    if (isMobile) {
+      const { dx, dy } = consumeLookDelta();
+      if (dx !== 0 || dy !== 0) {
+        mouseRotation.current.x += dx;
+        mouseRotation.current.y += dy;
+        mouseRotation.current.y = Math.max(CAMERA.pitchMin, Math.min(CAMERA.pitchMax, mouseRotation.current.y));
+      }
+
+      // 移动端：消费武器切换
+      const weaponSlot = consumeWeaponSlot();
+      if (weaponSlot >= 0 && weaponSlot < WEAPONS.length && weaponSlot !== playerState.currentWeaponIndex) {
+        const newWeapon = WEAPONS[weaponSlot];
+        playerState.currentWeaponIndex = weaponSlot;
+        playerState.ammo = newWeapon.magSize;
+        playerState.reserveAmmo = newWeapon.reserveAmmo;
+        playerState.isReloading = false;
+        playerState.reloadTimer = 0;
+        playerState.consecutiveShots = 0;
+        playerState.fireMode = newWeapon.availableModes[0];
+      }
+
+      // 移动端：射击模式切换
+      if (consumeFireModeToggle()) {
+        const modes = weapon.availableModes;
+        if (modes.length > 1) {
+          const currentIdx = modes.indexOf(playerState.fireMode);
+          playerState.fireMode = modes[(currentIdx + 1) % modes.length];
+        }
+      }
+    }
+
+    // Build input state (merge PC keyboard + mobile touch)
+    const hasJoystick = isMobile && (Math.abs(touchInput.joystickY) > 0.1 || Math.abs(touchInput.joystickX) > 0.1);
     const input: InputState = {
-      forward: hasPointerLock && kb.forward,
-      backward: hasPointerLock && kb.backward,
-      left: hasPointerLock && kb.left,
-      right: hasPointerLock && kb.right,
-      sprint: hasPointerLock && kb.sprint,
-      jump: hasPointerLock && kb.jump,
-      crouch: hasPointerLock && kb.crouch,
-      prone: hasPointerLock && kb.prone,
-      leanLeft: hasPointerLock && kb.leanLeft,
-      leanRight: hasPointerLock && kb.leanRight,
-      freeLook: hasPointerLock && kb.freeLook,
-      shoot: hasPointerLock && shootRef.current,
-      aim: aimRef.current,
-      reload: kb.reload,
+      forward: (canInput && kb.forward) || (isMobile && touchInput.joystickY > 0.1),
+      backward: (canInput && kb.backward) || (isMobile && touchInput.joystickY < -0.1),
+      left: (canInput && kb.left) || (isMobile && touchInput.joystickX < -0.1),
+      right: (canInput && kb.right) || (isMobile && touchInput.joystickX > 0.1),
+      sprint: (canInput && kb.sprint) || (isMobile && touchInput.sprint),
+      jump: (canInput && kb.jump) || (isMobile && touchInput.jump),
+      crouch: (canInput && kb.crouch) || (isMobile && touchInput.crouch),
+      prone: (canInput && kb.prone) || (isMobile && touchInput.prone),
+      leanLeft: canInput && kb.leanLeft,
+      leanRight: canInput && kb.leanRight,
+      freeLook: canInput && kb.freeLook,
+      shoot: (canInput && shootRef.current) || (isMobile && touchInput.fire),
+      aim: aimRef.current || (isMobile && touchInput.aim),
+      reload: kb.reload || (isMobile && touchInput.reload),
     };
 
     // ---- Stance ----
@@ -384,10 +425,18 @@ export function Player(props: {
       executeShot();
     }
 
-    // ---- Auto fire (hold LMB in auto mode) ----
-    if (mouseHeldRef.current && playerState.fireMode === FireMode.Auto && !playerState.isReloading && playerState.ammo > 0) {
+    // ---- Auto fire (hold LMB in auto mode, or mobile touch fire) ----
+    const fireHeld = mouseHeldRef.current || (isMobile && touchInput.fire);
+    if (fireHeld && playerState.fireMode === FireMode.Auto && !playerState.isReloading) {
       if (now - playerState.lastFireTime >= weapon.fireCooldown && !shootRef.current && !playerState.isSprinting) {
         executeShot();
+      }
+    }
+    // Mobile: single fire mode, each touch triggers one shot
+    if (isMobile && touchInput.fire && playerState.fireMode === FireMode.Single && !playerState.isReloading) {
+      if (now - playerState.lastFireTime >= weapon.fireCooldown && !shootRef.current && !playerState.isSprinting) {
+        executeShot();
+        // Prevent repeated fire in single mode - we handle this via cooldown
       }
     }
 
@@ -465,8 +514,6 @@ export function Player(props: {
     );
 
     if (group.current) {
-      const slerpFactor = !hasPointerLock || playerState.isAiming ? 1 : 0.15;
-
       if (playerState.isSprinting) {
         let moveZ = 0, moveX = 0;
         if (input.forward) moveZ -= 1;
@@ -481,10 +528,10 @@ export function Player(props: {
             new THREE.Vector3(0, 1, 0),
             sprintYaw,
           );
-          group.current.quaternion.slerp(sprintRotation, 0.15);
+          group.current.quaternion.copy(sprintRotation);
         }
       } else {
-        group.current.quaternion.slerp(playerYRotation, slerpFactor);
+        group.current.quaternion.copy(playerYRotation);
       }
     }
 
@@ -517,7 +564,7 @@ export function Player(props: {
 
     // ---- Camera ----
     const cameraYaw = yaw + playerState.freeLookYawOffset;
-    const cameraPitch = pitch + playerState.recoilPitch;
+    const cameraPitch = pitch; // recoil is now applied directly to mouseRotation, no buffer layer
 
     const cameraPlayerYRot = new THREE.Quaternion().setFromAxisAngle(
       new THREE.Vector3(0, 1, 0),
@@ -554,6 +601,7 @@ export function Player(props: {
 
     // ---- Shooting ----
     const justFired = shootRef.current;
+    if (justFired) shootRef.current = false; // consume immediately — one frame only
 
     // Spread update
     playerState.currentSpread = updateSpread({ state: playerState, input, delta });
@@ -566,20 +614,20 @@ export function Player(props: {
       );
     }
 
-    // Recoil update (use per-weapon recoil values)
-    const recoilResult = updateRecoil({ state: playerState, justFired, delta });
-    playerState.recoilPitch = recoilResult.recoilPitch;
-    playerState.recoilYaw = recoilResult.recoilYaw;
-
-    // Apply recoil to mouse — kick UP + random horizontal jitter
+    // Recoil: apply directly to mouseRotation so each shot kicks immediately
     if (justFired) {
-      mouseRotation.current.y -= weapon.recoilVertical * (Math.PI / 180) * 0.5;
-      const hJitter = (Math.random() * 2 - 1) * weapon.recoilHorizontal * (Math.PI / 180) * 0.5;
+      const stanceMul = SHOOTING.recoil.stanceMultiplier[playerState.stance] ?? 1;
+      // Full vertical kick — immediate, no buffer
+      mouseRotation.current.y -= weapon.recoilVertical * (Math.PI / 180) * stanceMul;
+      // Horizontal jitter — immediate
+      const hJitter = (Math.random() * 2 - 1) * weapon.recoilHorizontal * (Math.PI / 180) * stanceMul;
       mouseRotation.current.x += hJitter;
+      // Clamp pitch
+      mouseRotation.current.y = Math.max(CAMERA.pitchMin, Math.min(CAMERA.pitchMax, mouseRotation.current.y));
     }
 
     // Ray-cast shooting
-    handleShooting({
+    const shootResult = handleShooting({
       world: rapier.world,
       camera: threeState.camera,
       controls,
@@ -587,6 +635,22 @@ export function Player(props: {
       spread: playerState.currentSpread,
       shootRayDirection: shootRayDir,
     });
+
+    // Bullet effects: tracer + bullet hole
+    if (justFired && props.bulletEffectsRef?.current && shootResult.rayOrigin) {
+      if (shootResult.hit && shootResult.hitPoint && shootResult.hitNormal) {
+        props.bulletEffectsRef.current.addHit(
+          shootResult.hitPoint,
+          shootResult.hitNormal,
+          shootResult.rayOrigin,
+        );
+      } else if (shootResult.rayDirection) {
+        props.bulletEffectsRef.current.addMiss(
+          shootResult.rayOrigin,
+          shootResult.rayDirection,
+        );
+      }
+    }
 
     // ---- Report state to HUD ----
     if (props.onStateUpdate) {
@@ -654,13 +718,16 @@ export function Player(props: {
           </group>
         </group>
 
-        <PositionalAudio
-          url={getPath('sfx/pistol-shot.mp3')}
-          ref={shotSfxRef}
-          distance={8}
-          loop={false}
-          position={[0, 1.5, 0]}
-        />
+        {WEAPONS.map((w, i) => (
+          <PositionalAudio
+            key={w.name}
+            url={getPath(w.sfx)}
+            ref={(el) => { shotSfxRefs.current[i] = el; }}
+            distance={8}
+            loop={false}
+            position={[0, 1.5, 0]}
+          />
+        ))}
       </RigidBody>
 
       {/* Muzzle Flash */}

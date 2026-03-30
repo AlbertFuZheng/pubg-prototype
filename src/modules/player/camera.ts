@@ -103,7 +103,7 @@ export function updateCamera(params: {
   const stanceDropOffset = standingHeight - state.cameraHeight; // positive when crouching/prone
   const orbitAngle = pitch;
   const cameraOffset = new THREE.Vector3(
-    totalRightOffset,
+    -totalRightOffset,
     Math.sin(orbitAngle) * distance + standingHeight - leanDownOffset,
     -Math.cos(orbitAngle) * distance,
   );

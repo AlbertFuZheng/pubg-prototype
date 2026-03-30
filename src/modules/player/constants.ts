@@ -205,32 +205,15 @@ export const WEAPONS: WeaponConfig[] = [
 
 ];
 
-// --- 动画索引映射（Pro Rifle Pack 19 clips）---
+// --- 动画索引映射 ---
 export const ANIM = {
-  // Standing (0-7)
   IDLE: 0,
   WALK_FORWARD: 1,
   WALK_BACKWARD: 2,
-  STRAFE_LEFT: 3,
-  STRAFE_RIGHT: 4,
-  RUN_FORWARD: 5,
-  RUN_BACKWARD: 6,
-  SPRINT_FORWARD: 7,
-
-  // Crouching (8-12)
-  CROUCH_IDLE: 8,
-  CROUCH_WALK_FORWARD: 9,
-  CROUCH_WALK_BACKWARD: 10,
-  CROUCH_STRAFE_LEFT: 11,
-  CROUCH_STRAFE_RIGHT: 12,
-
-  // Prone (13-15)
-  PRONE_IDLE: 13,
-  PRONE_FORWARD: 14,
-  PRONE_BACKWARD: 15,
-
-  // Jump (16-18)
-  JUMP_UP: 16,
-  JUMP_LOOP: 17,
-  JUMP_DOWN: 18,
+  RUN_FORWARD: 3,
+  RUN_BACKWARD: 4,
+  STRAFE_LEFT: 5,
+  STRAFE_RIGHT: 6,
+  JUMP_START: 7,
+  JUMP_END: 8,
 } as const;

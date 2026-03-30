@@ -16,8 +16,6 @@ html, body, #root {
   user-select: none;
   /* 防止 iOS Safari 弹性滚动 */
   overscroll-behavior: none;
-  /* 安全区适配 */
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 body {

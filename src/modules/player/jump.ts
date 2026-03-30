@@ -43,14 +43,14 @@ export function handleJump(params: {
 
   // Trigger jump
   if (jumpPressed && isGrounded && !state.isJumping && now - state.lastJumpTime > JUMP_COOLDOWN) {
-    setAction(actions[ANIM.JUMP_START]);
+    setAction(actions[ANIM.JUMP_UP]);
     setIsJumping(true);
     setJumpWait(true);
     state.lastJumpTime = now;
 
     controls.current.applyImpulse({ x: 0, y: JUMP_IMPULSE, z: 0 }, true);
 
-    const dur = actions[ANIM.JUMP_START].getClip().duration;
+    const dur = actions[ANIM.JUMP_UP].getClip().duration;
     setTimeout(() => setJumpWait(false), dur * 1000);
   }
 }

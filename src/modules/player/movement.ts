@@ -1,5 +1,5 @@
 // ============================================================
-// movement.ts — 移动动画切换逻辑
+// movement.ts — 移动动画切换逻辑（支持站/蹲/趴三姿态）
 // ============================================================
 
 import * as THREE from 'three';
@@ -19,11 +19,42 @@ export function handleMovement(params: {
 
   const { forward, backward, left, right } = input;
 
-  // Sprint only allowed in certain stances and moving forward
-  const canSprint = input.sprint && forward && !backward;
+  // ---- Prone 趴下 ----
+  if (state.stance === Stance.Prone) {
+    if (forward) {
+      setAction(actions[ANIM.PRONE_FORWARD]);
+    } else if (backward) {
+      setAction(actions[ANIM.PRONE_BACKWARD]);
+    } else {
+      setAction(actions[ANIM.PRONE_IDLE]);
+    }
+    return;
+  }
 
+  // ---- Crouching 蹲下 ----
+  if (state.stance === Stance.Crouching) {
+    if (forward || backward) {
+      if (state.isSprinting && forward) {
+        // 蹲下冲刺用蹲走前进（蹲姿没有冲刺动画）
+        setAction(actions[ANIM.CROUCH_WALK_FORWARD]);
+      } else {
+        setAction(actions[forward ? ANIM.CROUCH_WALK_FORWARD : ANIM.CROUCH_WALK_BACKWARD]);
+      }
+      return;
+    }
+    if (left || right) {
+      setAction(actions[left ? ANIM.CROUCH_STRAFE_LEFT : ANIM.CROUCH_STRAFE_RIGHT]);
+      return;
+    }
+    setAction(actions[ANIM.CROUCH_IDLE]);
+    return;
+  }
+
+  // ---- Standing 站立 ----
   if (forward || backward) {
-    if (canSprint && state.stance === Stance.Standing) {
+    if (state.isSprinting && forward) {
+      setAction(actions[ANIM.SPRINT_FORWARD]);
+    } else if (input.sprint && forward) {
       setAction(actions[forward ? ANIM.RUN_FORWARD : ANIM.RUN_BACKWARD]);
     } else {
       setAction(actions[forward ? ANIM.WALK_FORWARD : ANIM.WALK_BACKWARD]);

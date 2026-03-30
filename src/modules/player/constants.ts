@@ -18,7 +18,7 @@ export const MOUSE_SENSITIVITY = 0.002;
 export const ADS_SENSITIVITY_MULTIPLIER = 0.6; // 开镜时降低灵敏度
 
 // --- 移动端触控灵敏度 ---
-export const TOUCH_SENSITIVITY = 0.004; // 触摸滑动视角灵敏度
+export const TOUCH_SENSITIVITY = 0.008; // 触摸滑动视角灵敏度（PC鼠标的4倍）
 export const TOUCH_ADS_SENSITIVITY_MULTIPLIER = 0.5; // 触摸开镜灵敏度倍率
 export const JOYSTICK_SPRINT_THRESHOLD = 0.85; // 摇杆推到多远触发冲刺
 

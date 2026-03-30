@@ -581,6 +581,7 @@ export function Player(props: {
       camera: threeState.camera,
       world: rapier.world,
       delta,
+      isMobile,
     });
 
     // ---- Spine aiming ----

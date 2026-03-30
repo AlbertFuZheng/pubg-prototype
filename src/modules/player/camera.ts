@@ -72,8 +72,9 @@ export function updateCamera(params: {
   camera: THREE.Camera;
   world: any;
   delta: number;
+  isMobile?: boolean;
 }): void {
-  const { state, smoothedPlayerPosition, smoothedCameraPosition, playerYRotation, pitch, yaw, camera, world, delta } = params;
+  const { state, smoothedPlayerPosition, smoothedCameraPosition, playerYRotation, pitch, yaw, camera, world, delta, isMobile } = params;
 
   const isADS = state.isAiming;
   const isSprint = state.isSprinting;
@@ -86,7 +87,9 @@ export function updateCamera(params: {
   // Camera distance & offsets based on mode
   const distance = isADS ? CAMERA.adsDistance : CAMERA.defaultDistance;
   const rightOffset = isADS ? CAMERA.adsRightOffset : CAMERA.defaultRightOffset;
-  const baseFov = isADS ? CAMERA.adsFov : CAMERA.defaultFov;
+  const baseFov = isADS
+    ? (isMobile ? 40 : CAMERA.adsFov)
+    : (isMobile ? 55 : CAMERA.defaultFov);
   const lerpSpeed = isADS ? CAMERA.adsLerpSpeed : CAMERA.defaultLerpSpeed;
 
   // Lean camera offset (horizontal + slight downward)
@@ -100,7 +103,7 @@ export function updateCamera(params: {
   const stanceDropOffset = standingHeight - state.cameraHeight; // positive when crouching/prone
   const orbitAngle = pitch;
   const cameraOffset = new THREE.Vector3(
-    -totalRightOffset,
+    totalRightOffset,
     Math.sin(orbitAngle) * distance + standingHeight - leanDownOffset,
     -Math.cos(orbitAngle) * distance,
   );

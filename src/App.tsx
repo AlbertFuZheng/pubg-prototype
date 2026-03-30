@@ -316,7 +316,7 @@ export default function App() {
       <KeyboardControls map={keyMap}>
         <Canvas
           style={{ width: '100%', height: '100%' }}
-          camera={{ fov: 75, near: 0.1, far: 1000 }}
+          camera={{ fov: isMobile ? 55 : 75, near: 0.1, far: 1000 }}
           shadows={isMobile ? { type: THREE.BasicShadowMap } : true}
         >
           <ambientLight intensity={0.3} />

@@ -127,9 +127,9 @@ export const SHOOTING = {
   },
 
   recoil: {
-    verticalBase: 0.08,          // very small upward kick per shot (degrees)
+    verticalBase: 0.24,          // upward kick per shot (degrees)
     verticalAccumulation: 0,     // no increase on sustained fire — each shot feels the same
-    horizontalRange: 0.12,       // small random left/right jitter (degrees)
+    horizontalRange: 0.36,       // random left/right jitter (degrees)
     recoverySpeed: 4.0,          // fast recovery
     stanceMultiplier: {
       [Stance.Standing]: 1.0,
@@ -184,8 +184,8 @@ export const WEAPONS: WeaponConfig[] = [
     reserveAmmo: 90,
     reloadTime: 2.4,
     damage: 36,
-    recoilVertical: 0.10,
-    recoilHorizontal: 0.15,
+    recoilVertical: 0.30,
+    recoilHorizontal: 0.45,
     availableModes: [FireMode.Auto, FireMode.Single],
     sfx: 'sfx/ak47-shot.mp3',
   },
@@ -197,8 +197,8 @@ export const WEAPONS: WeaponConfig[] = [
     reserveAmmo: 90,
     reloadTime: 2.1,
     damage: 31,
-    recoilVertical: 0.08,
-    recoilHorizontal: 0.12,
+    recoilVertical: 0.24,
+    recoilHorizontal: 0.36,
     availableModes: [FireMode.Auto, FireMode.Single],
     sfx: 'sfx/m416-shot.mp3',
   },
